@@ -1,0 +1,147 @@
+command /aic [<text>] [<text>] [<text>] [<text>]:
+	trigger:
+		if arg-1 is set:
+			if arg-1 is "admin":
+				player is op
+				if arg-2 is "machinelearning":
+					if arg-3 is "quickTrain":
+						set {_hacker} to arg-4 parsed as an offline player
+						set {_y} to {_hacker}'s y coordinate
+						loop {_y} times:
+							if block at block loop-value below {_hacker} is not air:
+								remove 1 from {_y}
+						set {_points} to {_y} - 4 + {ACI::Kills::%{_hacker}%} + {ACI::ClicksPerSec::%{_hacker}%} + {ACI::BlocksPerFall::%{_hacker}%}
+						set {_points} to {_points} + 1 / 3
+						send "&6Points calculation: &8(Value: %{_points}%)" to player
+						send "&fY: %{_hacker}'s y coordinate% &7+ &fKILLS: %{ACI::Kills::%{_hacker}%}% &7+ &fCLICKS PER SEC: %{ACI::ClicksPerSec::%{_hacker}%}% &7+ &BLOCKS PER FALL: %{ACI::BlocksPerFall::%{_hacker}%}%" to player
+						send "&6-----------------------------------------" to player
+						send "                       &f&l3" to player
+						add {_points} to {ACI::TotalPoints::*}
+					else if arg-3 is "clearData":
+						delete {ACI::TotalPoints::*}
+						send "&cData cleared." to player
+				else if arg-2 is "anticheat":
+					if arg-3 is "scan":
+						send "&b[✰] &6Scanning for cheaters..." to player
+						loop all players:
+							report(loop-player, player)
+					else if arg-3 is "autoreport" or "autoscan":
+						if {ACI::AutoScan} is not set:
+							set {ACI::AutoScan} to true
+							play sound "entity.experience_orb.pickup" with pitch 2 to player
+							send "&b[✰] &6ACI will now automatically scan every player in the server &eevery 15 seconds." to player
+						else:
+							play sound "entity.experience_orb.pickup" with pitch 0 to player
+							delete {ACI::AutoScan}
+							send "&b[✰] &cACI will no longer automatically scan every player in the server every 15 seconds."
+			else if arg-1 is "report":
+				if {ACI::AutoScan} is not set:
+					#if difference between now and {AIC::LastReported::%player%} is greater or equal to 15 seconds:
+						#set {AIC::LastReported::%player%} to now
+					send "&b[✰] &6Successfully reported &e%arg-2%." to player
+					set {_target} to arg-2 parsed as an offline player
+					report({_target}, player)
+					#else:
+						#	send "&cPlease wait at least 15 seconds before you do this." to player
+				else:
+					send "&b[✰] &cCannot report when Auto Re  port is enabled." to player
+
+
+on tab complete of "/aic":
+	set tab completions for position 1 to "admin", "report"
+	if tab arg-1 is "admin":
+		if player is op:
+			set tab completions for position 2 to "machinelearning", "anticheat"
+			if tab arg-2 is "machinelearning":
+				set tab completions for position 3 to "quickTrain", "clearData"
+				if tab arg-3 is "quickTrain":
+					set tab completions for position 4 to all offline players
+			else if tab arg-2 is "anticheat":
+				set tab completions for position 3 to "scan", "autoreport"
+		else:
+			set tab completions for position 2 to "OP Required!"
+	else if tab arg-1 is "report":
+		set tab completions for position 2 to all players
+
+command /report [<player>]:
+	trigger:
+		make player execute "/aic report %arg-1%"
+
+
+on join:
+	set {AIC::LastReported::%player%} to now
+	add 15 seconds to {AIC::LastReported::%player%}
+
+every 3 seconds:
+	loop all players:
+		if loop-player's y coordinate is less than {AIC::%loop-player%::YCoord}:
+			if difference between {AIC::%loop-player%::YCoord} and loop-player's y coordinate is greater or equal to 10:
+				if loop-player's health is greater or equal to {AIC::%loop-player%::Health}:
+					block below loop-player isn't water
+					block at loop-player isn't water
+					add 3 to {ACI::BlocksPerFall::%loop-player%}
+					delete {ACI::%loop-player%::YCoord}
+					delete {ACI::%loop-player%::Health}
+		set {AIC::%loop-player%::YCoord} to y coordinate of loop-player
+		set {AIC::%loop-player%::Health} to health of loop-player
+
+
+
+on click:
+	add 3.5 to {ACI::ClicksPerSec::%player%}
+
+every 1 second:
+	loop all players:
+		set {ACI::ClicksPerSec::%loop-player%} to 0
+
+
+every 1.5 minutes:
+	loop all players:
+		set {ACI::CheatingLogs::%loop-player%} to 0
+		set {ACI::Kills::%loop-player%} to 0
+		set {ACI::BlocksPerFall::%loop-player%} to 0
+	broadcast "&b[✰] &e&lAll cheating points have been cleared."
+
+on join:
+	if {ACI::Kills::%player%} is not set:
+		set {ACI::Kills::%player%} to 0.3
+	if {ACI::BlocksPerFall::%player%} is not set:
+		set {ACI::BlocksPerFall::%player%} to 0
+
+on join:
+	set {ACI::CheatingLogs::%player%} to 0
+
+function isHacker(P: player, POINTS: number):
+	add 1 to {ACI::CheatingLogs::%{_p}%}
+	if {ACI::CheatingLogs::%{_p}%} is greater or equal to 2:
+		loop 2 times:
+			play sound "block.note_block.pling" with pitch 2 to all players
+			wait 2 ticks
+		broadcast "&b[✰] &6%{_p}% &fhas been removed due to &ccheating&f."
+		broadcast "&b[✰] &6Cheat Points: &e%{_points}%"
+		add {_points} to {ACI::TotalPoints::*}
+		#kick {_p} because "&b[✰] &cAre you cheating?"
+		set {ACI::CheatingLogs::%{_p}%} to 0
+		set {ACI::BlocksPerFall::%{_p}%} to 0
+	else if {ACI::CheatingLogs::%{_p}%} is 1:
+		wait 3 seconds
+		report({_p}, {_none})
+
+every 15 seconds:
+	if {ACI::AutoScan} is set:
+		loop all players:
+			report(loop-player, loop-player)
+
+
+function report(P: player, R: player):
+	set {_y} to {_p}'s y coordinate
+	loop {_y} times:
+		if block at block loop-value below {_p} is not air:
+			remove 1 from {_y}
+	set {_points} to {_y} - 2.5 + {ACI::Kills::%{_p}%}+1.5 + {ACI::ClicksPerSec::%{_p}%} + {ACI::BlocksPerFall::%{_p}%}
+	set {_points} to {_points} + 1 / 3
+	loop {ACI::TotalPoints::*}:
+		add loop-value to {_hackerpoints}
+	set {_hackerpoints} to {_hackerpoints} / size of {ACI::TotalPoints::*}
+	if {_points} is greater or equal to {_hackerpoints}:
+		isHacker({_p}, {_points})
