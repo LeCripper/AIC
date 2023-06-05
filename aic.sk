@@ -34,6 +34,9 @@ command /aic [<text>] [<text>] [<text>] [<text>]:
 							play sound "entity.experience_orb.pickup" with pitch 0 to player
 							delete {ACI::AutoScan}
 							send "&b[✰] &cACI will no longer automatically scan every player in the server every 15 seconds."
+					else if arg-3 is "punishmentHistory":
+						loop {AIC::punishmentHistory::*}:
+							send loop-value to player
 			else if arg-1 is "report":
 				if {ACI::AutoScan} is not set:
 					#if difference between now and {AIC::LastReported::%player%} is greater or equal to 15 seconds:
@@ -57,7 +60,7 @@ on tab complete of "/aic":
 				if tab arg-3 is "quickTrain":
 					set tab completions for position 4 to all offline players
 			else if tab arg-2 is "anticheat":
-				set tab completions for position 3 to "scan", "autoreport"
+				set tab completions for position 3 to "scan", "autoreport", "punishmentHistory"
 		else:
 			set tab completions for position 2 to "OP Required!"
 	else if tab arg-1 is "report":
@@ -94,8 +97,8 @@ every 1 second:
 	loop all players:
 		set {ACI::ClicksPerSec::%loop-player%} to 0
 
-
-every 1.5 minutes:
+		
+every 5 minutes:
 	loop all players:
 		set {ACI::CheatingLogs::%loop-player%} to 0
 		set {ACI::Kills::%loop-player%} to 0
@@ -120,7 +123,8 @@ function isHacker(P: player, POINTS: number):
 		broadcast "&b[✰] &6%{_p}% &fhas been removed due to &ccheating&f."
 		broadcast "&b[✰] &6Cheat Points: &e%{_points}%"
 		add {_points} to {ACI::TotalPoints::*}
-		#kick {_p} because "&b[✰] &cAre you cheating?"
+		add "&b[✰] &c%now% &e%{_p}% &8| &3%{_points}%" to {AIC::punishmentHistory::*}
+		kick {_p} because "&b[✰] &cAre you cheating?"
 		set {ACI::CheatingLogs::%{_p}%} to 0
 		set {ACI::BlocksPerFall::%{_p}%} to 0
 	else if {ACI::CheatingLogs::%{_p}%} is 1:
